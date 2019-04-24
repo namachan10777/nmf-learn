@@ -6,14 +6,8 @@ import math as m
 
 # Wの初期化
 
-def laplace(phi, mu, x):
-    return m.exp(-abs(x-mu)/phi) / phi / 2
-
 def score(x):
-    #return laplace(1.0, 0.0, x)
-    if x == 0:
-        return 0
-    return x / abs(x)
+    return m.tanh(x)
 
 if __name__ == '__main__':
     wav1, rate1 = sf.read('mix1.wav')
