@@ -3,11 +3,38 @@ import numpy as np
 import soundfile as sf
 import random as rnd
 import math as m
+import multiprocessing as mp
 
 # Wの初期化
 
 def score(x):
     return m.tanh(x)
+
+def calc_partial_sum(cfg):
+    wav, begin, end = cfg
+    entropy = np.zeros([2, 2])
+    for t in range(begin, end):
+        phi = np.array([
+            [score(wav[0][t]) * wav[0][t], score(wav[0][t]) * wav[1][t]],
+            [score(wav[1][t]) * wav[0][t], score(wav[1][t]) * wav[1][t]]])
+        entropy = entropy + phi
+    return entropy
+
+def entropy(wav):
+    cpu_num = mp.cpu_count()
+    step = int(m.ceil(len(ipt[0]) / cpu_num))
+    pool = mp.Pool(cpu_num)
+
+    cfgs = []
+    for i in range(0, cpu_num):
+        cfgs.append((wav, i * step, min((i+1) * step, len(ipt[0]) - 1)))
+
+    entropy = np.zeros([2, 2])
+    for sub in pool.map(calc_partial_sum, cfgs):
+        entropy = entropy + sub
+    pool.close()
+    return entropy / len(ipt[0])
+
 
 if __name__ == '__main__':
     wav1, rate1 = sf.read('mix1.wav')
@@ -18,15 +45,9 @@ if __name__ == '__main__':
     w = np.array([[rnd.random() - 0.5, rnd.random() - 0.5], [rnd.random() - 0.5, rnd.random() - 0.5]])
 
     for i in range(0, 100):
-        entropy = np.zeros([2, 2])
-        for t in range(0, len(wav1)):
-            phi = np.array([
-                [score(out[0][t]) * out[0][t], score(out[0][t]) * out[1][t]],
-                [score(out[1][t]) * out[0][t], score(out[1][t]) * out[1][t]]])
-            entropy = np.add(entropy, phi)
-        entropy = entropy / len(wav1)
-        print(entropy)
-        w = w + step * (np.identity(2) - entropy) @ w
+        e = entropy(out)
+        print(e)
+        w = w + step * (np.identity(2) - e) @ w
         out = w @ ipt
 
     sf.write('ica1.wav', out[0], rate1)
